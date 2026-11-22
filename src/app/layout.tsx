@@ -25,6 +25,7 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: light)", color: "#f6f8f7" },
     { media: "(prefers-color-scheme: dark)", color: "#0b1210" },
   ],
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -33,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
+      <body className="app-viewport flex min-h-0 flex-col overflow-hidden bg-background text-foreground">
         {children}
       </body>
     </html>

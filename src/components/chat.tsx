@@ -394,7 +394,7 @@ export function Chat() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-[272px] shrink-0 flex-col border-r border-border bg-surface transition-transform duration-300 ease-out md:static md:z-auto md:translate-x-0 ${
+        className={`safe-top safe-bottom safe-x fixed inset-y-0 left-0 z-40 flex w-[min(90vw,320px)] shrink-0 flex-col border-r border-border bg-surface transition-transform duration-300 ease-out md:static md:z-auto md:w-[272px] md:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         aria-label="Chat history"
@@ -410,7 +410,7 @@ export function Chat() {
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
             aria-label="Close chat history"
           >
             <CloseIcon className="h-4 w-4" />
@@ -422,7 +422,7 @@ export function Chat() {
             type="button"
             onClick={startNewChat}
             disabled={streaming}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground shadow-card transition-all hover:bg-primary-hover hover:shadow-float disabled:opacity-50 disabled:shadow-none"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-3 text-sm font-medium text-primary-foreground shadow-card transition-all hover:bg-primary-hover hover:shadow-float disabled:opacity-50 disabled:shadow-none"
           >
             <PlusIcon className="h-4 w-4" /> New conversation
           </button>
@@ -456,7 +456,7 @@ export function Chat() {
                       onClick={() => openChat(chat.sessionId)}
                       disabled={streaming}
                       aria-current={active ? "page" : undefined}
-                      className={`flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2.5 pr-9 text-left transition-colors disabled:opacity-50 ${
+                      className={`flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2.5 pr-12 text-left transition-colors disabled:opacity-50 ${
                         active
                           ? "bg-primary-soft text-primary-soft-foreground"
                           : "hover:bg-muted"
@@ -495,7 +495,7 @@ export function Chat() {
                       onClick={() => deleteChat(chat.sessionId)}
                       disabled={streaming}
                       aria-label={`Delete ${chat.title}`}
-                      className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground opacity-100 transition-all hover:bg-surface hover:text-red-600 disabled:opacity-30 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 dark:hover:text-red-400"
+                      className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground opacity-100 transition-all hover:bg-surface hover:text-red-600 disabled:opacity-30 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 dark:hover:text-red-400"
                     >
                       <TrashIcon className="h-3.5 w-3.5" />
                     </button>
@@ -517,12 +517,12 @@ export function Chat() {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="shrink-0 border-b border-border bg-surface/90 backdrop-blur-md">
+        <header className="safe-top safe-x shrink-0 border-b border-border bg-surface/90 backdrop-blur-md">
           <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-4 py-3 sm:px-6">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+              className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
               aria-label="Open chat history"
             >
               <MenuIcon className="h-4 w-4" />
@@ -547,7 +547,7 @@ export function Chat() {
               disabled={streaming}
               aria-label="Start a new chat"
               title="New chat"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary-soft hover:text-primary-soft-foreground disabled:opacity-40"
+              className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary-soft hover:text-primary-soft-foreground disabled:opacity-40"
             >
               <PlusIcon className="h-4 w-4" />
             </button>
@@ -583,7 +583,7 @@ export function Chat() {
           </div>
         </div>
 
-        <footer className="shrink-0 border-t border-border bg-surface/95 backdrop-blur-md">
+        <footer className="safe-bottom safe-x shrink-0 border-t border-border bg-surface/95 backdrop-blur-md">
           <div className="mx-auto w-full max-w-3xl px-4 pb-4 pt-3 sm:px-6">
             {error && (
               <div
@@ -595,7 +595,7 @@ export function Chat() {
                 <button
                   type="button"
                   onClick={() => setError(null)}
-                  className="rounded-md p-0.5 transition-opacity hover:opacity-70"
+                  className="-my-2 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-opacity hover:opacity-70"
                   aria-label="Dismiss error"
                 >
                   <CloseIcon className="h-3.5 w-3.5" />
@@ -606,24 +606,25 @@ export function Chat() {
             {images.length > 0 && (
               <div className="mb-3 flex flex-wrap gap-2">
                 {images.map((image) => (
-                  <div
-                    key={image.id}
-                    className="group relative h-16 w-16 overflow-hidden rounded-xl border border-border bg-muted shadow-card"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={image.preview}
-                      alt={image.name || "Prescription attachment"}
-                      className="h-full w-full object-cover"
-                    />
+                  <div key={image.id} className="group relative h-16 w-16">
+                    <div className="h-full w-full overflow-hidden rounded-xl border border-border bg-muted shadow-card">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={image.preview}
+                        alt={image.name || "Prescription attachment"}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => removeImage(image.id)}
                       disabled={streaming}
                       aria-label={`Remove ${image.name || "image"}`}
-                      className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground/85 text-background shadow-sm transition-colors hover:bg-red-600 hover:text-white disabled:opacity-40"
+                      className="group/remove absolute -right-2 -top-2 flex h-11 w-11 items-center justify-center rounded-full bg-transparent text-background transition-colors disabled:opacity-40"
                     >
-                      <CloseIcon className="h-3 w-3" />
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground/85 shadow-sm transition-colors group-hover/remove:bg-red-600 group-hover/remove:text-white">
+                        <CloseIcon className="h-3 w-3" />
+                      </span>
                     </button>
                   </div>
                 ))}
@@ -677,7 +678,7 @@ export function Chat() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={streaming || uploading || images.length >= MAX_IMAGES}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-primary-soft hover:text-primary disabled:opacity-30"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-primary-soft hover:text-primary disabled:opacity-30"
                   aria-label="Attach prescription photo"
                   title="Attach a photo of your prescription"
                 >
@@ -695,7 +696,7 @@ export function Chat() {
                     }
                   }}
                   placeholder="Paste your prescription or attach a photo…"
-                  className="max-h-40 min-h-10 flex-1 resize-none bg-transparent px-2 py-2.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/80 focus-visible:outline-none"
+                  className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/80 focus-visible:outline-none"
                 />
                 <button
                   type="submit"
@@ -705,7 +706,7 @@ export function Chat() {
                     uploading ||
                     (input.trim().length === 0 && images.length === 0)
                   }
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-card transition-all hover:bg-primary-hover hover:shadow-float disabled:opacity-40 disabled:shadow-none"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-card transition-all hover:bg-primary-hover hover:shadow-float disabled:opacity-40 disabled:shadow-none"
                   aria-label="Send message"
                   title="Send message"
                 >
