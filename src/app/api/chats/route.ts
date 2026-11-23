@@ -1,5 +1,5 @@
 import { Role } from "@/generated/prisma/client";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { toChatTitle } from "@/lib/titles";
 
 const MAX_CHATS = 50;
@@ -14,29 +14,37 @@ export async function GET(request: Request) {
     return Response.json({ chats: [] });
   }
 
-  const chats = await prisma.chat.findMany({
-    where: { clientId, messages: { some: {} } },
-    orderBy: { updatedAt: "desc" },
-    take: MAX_CHATS,
-    select: {
-      sessionId: true,
-      updatedAt: true,
-      messages: {
-        where: { role: Role.USER },
-        orderBy: { createdAt: "asc" },
-        take: 1,
-        select: { content: true },
+  try {
+    const chats = await getPrisma().chat.findMany({
+      where: { clientId, messages: { some: {} } },
+      orderBy: { updatedAt: "desc" },
+      take: MAX_CHATS,
+      select: {
+        sessionId: true,
+        updatedAt: true,
+        messages: {
+          where: { role: Role.USER },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: { content: true },
+        },
       },
-    },
-  });
+    });
 
-  return Response.json({
-    chats: chats.map((chat) => ({
-      sessionId: chat.sessionId,
-      title: toChatTitle(chat.messages[0]?.content ?? "Untitled chat"),
-      updatedAt: chat.updatedAt.toISOString(),
-    })),
-  });
+    return Response.json({
+      chats: chats.map((chat) => ({
+        sessionId: chat.sessionId,
+        title: toChatTitle(chat.messages[0]?.content ?? "Untitled chat"),
+        updatedAt: chat.updatedAt.toISOString(),
+      })),
+    });
+  } catch (err) {
+    console.error("Failed to load chats:", err);
+    return Response.json(
+      { error: "Chat history is temporarily unavailable." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE(request: Request) {
@@ -47,10 +55,17 @@ export async function DELETE(request: Request) {
     return Response.json({ error: "Invalid chat." }, { status: 400 });
   }
 
-  const result = await prisma.chat.deleteMany({ where: { sessionId, clientId } });
-  if (result.count === 0) {
-    return Response.json({ error: "Chat not found." }, { status: 404 });
+  try {
+    const result = await getPrisma().chat.deleteMany({ where: { sessionId, clientId } });
+    if (result.count === 0) {
+      return Response.json({ error: "Chat not found." }, { status: 404 });
+    }
+    return Response.json({ ok: true });
+  } catch (err) {
+    console.error("Failed to delete chat:", err);
+    return Response.json(
+      { error: "Could not delete this chat. Please try again." },
+      { status: 500 }
+    );
   }
-
-  return Response.json({ ok: true });
 }

@@ -13,7 +13,7 @@ import {
   parseStoredImages,
   toDataUrl,
 } from "@/lib/images";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { createRateLimiter } from "@/lib/rate-limit";
 
 const HISTORY_LIMIT = 8;
@@ -35,6 +35,7 @@ const chatSelect = {
 } satisfies Prisma.ChatSelect;
 
 async function getOrCreateChat(sessionId: string, clientId: string) {
+  const prisma = getPrisma();
   const existing = await prisma.chat.findUnique({
     where: { sessionId },
     select: chatSelect,
@@ -67,21 +68,41 @@ export async function GET(request: Request) {
   if (!sessionId || sessionId.length > 64) {
     return Response.json({ messages: [] });
   }
-  const chat = await prisma.chat.findUnique({
-    where: { sessionId },
-    include: { messages: { orderBy: { createdAt: "asc" } } },
-  });
-  return Response.json({
-    messages: (chat?.messages ?? []).map((message) => ({
-      id: message.id,
-      role: message.role,
-      content: message.content,
-      images: parseStoredImages(message.attachments).map(toDataUrl),
-    })),
-  });
+  try {
+    const chat = await getPrisma().chat.findUnique({
+      where: { sessionId },
+      include: { messages: { orderBy: { createdAt: "asc" } } },
+    });
+    return Response.json({
+      messages: (chat?.messages ?? []).map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        images: parseStoredImages(message.attachments).map(toDataUrl),
+      })),
+    });
+  } catch (err) {
+    console.error("Failed to load chat:", err);
+    return Response.json(
+      { error: "Chat history is temporarily unavailable." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: Request) {
+  try {
+    return await handlePost(request);
+  } catch (err) {
+    console.error("Chat request failed:", err);
+    return Response.json(
+      { error: "Chat service is temporarily unavailable. Please try again." },
+      { status: 500 }
+    );
+  }
+}
+
+async function handlePost(request: Request) {
   const startedAt = Date.now();
   let body: unknown;
   try {
@@ -151,7 +172,7 @@ export async function POST(request: Request) {
   ];
   const recent = history.slice(-HISTORY_LIMIT);
 
-  const userMessagePromise = prisma.message
+  const userMessagePromise = getPrisma().message
     .create({
       data: {
         chatId: chat.id,
@@ -183,7 +204,7 @@ export async function POST(request: Request) {
     const userMessage = await userMessagePromise;
     if (userMessage) {
       try {
-        await prisma.message.delete({ where: { id: userMessage.id } });
+        await getPrisma().message.delete({ where: { id: userMessage.id } });
       } catch (cleanupErr) {
         console.error("Failed to roll back unsent message:", cleanupErr);
       }
@@ -219,7 +240,7 @@ export async function POST(request: Request) {
       } finally {
         try {
           if (full.trim()) {
-            await prisma.message.create({
+            await getPrisma().message.create({
               data: { chatId, role: Role.ASSISTANT, content: full },
             });
           }

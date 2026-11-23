@@ -252,6 +252,25 @@ export function Chat() {
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [input]);
 
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const updateKeyboardInset = () => {
+      const inset = Math.max(0, Math.round(window.innerHeight - viewport.height));
+      document.documentElement.style.setProperty("--keyboard-inset", `${inset}px`);
+    };
+    updateKeyboardInset();
+    viewport.addEventListener("resize", updateKeyboardInset);
+    viewport.addEventListener("scroll", updateKeyboardInset);
+    window.addEventListener("resize", updateKeyboardInset);
+    return () => {
+      viewport.removeEventListener("resize", updateKeyboardInset);
+      viewport.removeEventListener("scroll", updateKeyboardInset);
+      window.removeEventListener("resize", updateKeyboardInset);
+      document.documentElement.style.removeProperty("--keyboard-inset");
+    };
+  }, []);
+
   function handleScroll() {
     const el = scrollRef.current;
     if (!el) return;
@@ -350,7 +369,7 @@ export function Chat() {
           | { error?: string }
           | null;
         throw new Error(
-          data?.error ?? "Something went wrong. Please try again."
+          data?.error ?? `Request failed (${res.status}). Please try again.`
         );
       }
 
@@ -696,7 +715,7 @@ export function Chat() {
                     }
                   }}
                   placeholder="Paste your prescription or attach a photo…"
-                  className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/80 focus-visible:outline-none"
+                  className="composer-input max-h-40 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/80 focus-visible:outline-none"
                 />
                 <button
                   type="submit"
