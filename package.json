@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "tsx --test tests/app.test.mts",
+    "check:gemini": "tsx scripts/check-gemini.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

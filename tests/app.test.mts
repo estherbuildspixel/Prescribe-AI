@@ -95,7 +95,17 @@ test("rate limiter blocks excess requests and resets after the window", () => {
 
 process.env.GEMINI_STARTUP_BUDGET_MS = "60";
 process.env.GEMINI_FALLBACK_MODEL = "fallback-a,fallback-b";
-const { generateContentStreamWithRetry, toContents } = await import("../src/lib/gemini");
+process.env.GEMINI_BREAKER_COOLDOWN_MS = "80";
+process.env.GEMINI_BREAKER_THRESHOLD = "2";
+process.env.GEMINI_BREAKER_WINDOW_MS = "1000";
+const {
+  generateContentStreamWithRetry,
+  getGeminiModels,
+  isGeminiModelCoolingDown,
+  resetGeminiCircuitBreaker,
+  toContents,
+} = await import("../src/lib/gemini");
+const { checkGeminiModels } = await import("../src/lib/gemini-health");
 
 const fakeGemini = (attempts: string[], behavior: (call: number) => unknown) => ({
   models: {
@@ -106,7 +116,23 @@ const fakeGemini = (attempts: string[], behavior: (call: number) => unknown) => 
   },
 });
 
+const fakeGeminiByModel = (attempts: string[], behavior: (model: string) => unknown) => ({
+  models: {
+    generateContentStream: async ({ model }: { model: string }) => {
+      attempts.push(model);
+      return behavior(model);
+    },
+  },
+});
+
+const retryableError = (status = 503) => {
+  const err = new Error("busy") as Error & { status: number };
+  err.status = status;
+  return err;
+};
+
 test("gemini retry falls back on a retryable failure", async () => {
+  resetGeminiCircuitBreaker();
   const attempts: string[] = [];
   const warn = console.warn;
   console.warn = () => {};
@@ -123,13 +149,14 @@ test("gemini retry falls back on a retryable failure", async () => {
       { contents: [] }
     );
     assert.equal(result, "stream");
-    assert.deepEqual(attempts, ["gemini-3.1-flash-lite", "fallback-a"]);
+    assert.deepEqual(attempts, ["gemini-3.5-flash-lite", "fallback-a"]);
   } finally {
     console.warn = warn;
   }
 });
 
 test("gemini retry stops immediately on a non-retryable failure", async () => {
+  resetGeminiCircuitBreaker();
   const attempts: string[] = [];
   const err = new Error("bad key") as Error & { status: number };
   err.status = 400;
@@ -139,10 +166,11 @@ test("gemini retry stops immediately on a non-retryable failure", async () => {
     }),
     /bad key/
   );
-  assert.deepEqual(attempts, ["gemini-3.1-flash-lite"]);
+  assert.deepEqual(attempts, ["gemini-3.5-flash-lite"]);
 });
 
 test("gemini retry respects the startup budget", async () => {
+  resetGeminiCircuitBreaker();
   const attempts: string[] = [];
   const started = Date.now();
   const warn = console.warn;
@@ -156,6 +184,92 @@ test("gemini retry respects the startup budget", async () => {
     );
     assert.ok(Date.now() - started < 500, "should fail fast instead of hanging");
     assert.equal(attempts.length, 1);
+  } finally {
+    console.warn = warn;
+  }
+});
+
+test("gemini circuit breaker skips a model after repeated 503 failures", async () => {
+  resetGeminiCircuitBreaker();
+  const attempts: string[] = [];
+  const primary = getGeminiModels()[0];
+  const warn = console.warn;
+  console.warn = () => {};
+  const gemini = fakeGeminiByModel(attempts, (model) => {
+    if (model === primary) throw retryableError();
+    return "stream";
+  });
+  try {
+    for (let i = 0; i < 2; i++) {
+      await generateContentStreamWithRetry(gemini as never, { contents: [] });
+    }
+    assert.equal(isGeminiModelCoolingDown(primary), true);
+    attempts.length = 0;
+    const result = await generateContentStreamWithRetry(gemini as never, { contents: [] });
+    assert.equal(result, "stream");
+    assert.deepEqual(attempts, ["fallback-a"]);
+  } finally {
+    console.warn = warn;
+  }
+});
+
+test("gemini circuit breaker allows a model back after cooldown", async () => {
+  resetGeminiCircuitBreaker();
+  const attempts: string[] = [];
+  const primary = getGeminiModels()[0];
+  const warn = console.warn;
+  console.warn = () => {};
+  const gemini = fakeGeminiByModel(attempts, (model) => {
+    if (model === primary) throw retryableError();
+    return "stream";
+  });
+  try {
+    for (let i = 0; i < 2; i++) {
+      await generateContentStreamWithRetry(gemini as never, { contents: [] });
+    }
+    assert.equal(isGeminiModelCoolingDown(primary), true);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(isGeminiModelCoolingDown(primary), false);
+    attempts.length = 0;
+    await generateContentStreamWithRetry(gemini as never, { contents: [] });
+    assert.equal(attempts[0], primary);
+  } finally {
+    console.warn = warn;
+  }
+});
+
+test("gemini health check reports model status and clears recovered breakers", async () => {
+  resetGeminiCircuitBreaker();
+  const primary = getGeminiModels()[0];
+  const warn = console.warn;
+  console.warn = () => {};
+  const failing = fakeGeminiByModel([], (model) => {
+    if (model === primary) throw retryableError();
+    return "stream";
+  });
+  try {
+    for (let i = 0; i < 2; i++) {
+      await generateContentStreamWithRetry(failing as never, { contents: [] });
+    }
+    assert.equal(isGeminiModelCoolingDown(primary), true);
+
+    const results = await checkGeminiModels(
+      fakeGeminiByModel([], (model) => {
+        if (model === "fallback-a") throw retryableError();
+        return "stream";
+      }) as never,
+      { models: [primary, "fallback-a"] }
+    );
+    assert.deepEqual(
+      results.map(({ model, ok }) => [model, ok]),
+      [
+        [primary, true],
+        ["fallback-a", false],
+      ]
+    );
+    assert.equal(results[0].coolingDown, true);
+    assert.equal(results[1].status, 503);
+    assert.equal(isGeminiModelCoolingDown(primary), false);
   } finally {
     console.warn = warn;
   }
